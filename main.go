@@ -8,15 +8,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 )
 
 var (
-	server      *gin.Engine
-	ctx         context.Context
-	mongoClient *mongo.Client
-
+	server           *gin.Engine
+	ctx              context.Context
+	mongoClient      *mongo.Client
+	kafka_connection *kafka.Conn
 	//  Add the Movies Service, Controllers and Routes
 	movieService    services.MovieServices
 	movieController controller.MovieController
@@ -39,38 +40,48 @@ var (
 func main() {
 	fmt.Println("Init web app")
 	InitServer()
-
-	err := server.Run(":8080")
+	err := server.Run(":5000")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	fmt.Println("Server is running on port 8080")
+	fmt.Println("Server is running on port 5000")
 }
 func InitServer() {
+	/*	ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel()
+		ctx = ctxTimeout*/
 	ctx = context.TODO()
+
 	mongoClient = config.DB
+
+	kafka_connection = config.ConnectionToKafka()
+
 	//Handle movie api movie endpoint
 	movieService = services.NewMovieClient(mongoClient, ctx)
 	movieController = controller.NewMovieController(movieService)
 	movieRoute = routes.NewMovieRouter(movieController)
+
 	//Handle movie schedule endpoint
 	movieScheduleServices = services.NewMovieScheduleService(mongoClient, ctx)
 	movieScheduleController = controller.NewMovieScheduleController(movieScheduleServices)
 	movieScheduleRoute = routes.NewMovieScheduleRoute(movieScheduleController)
+
 	//Handle movie api movie endpoint
-	orderService = services.NewOrderService(mongoClient, ctx)
+	orderService = services.NewOrderService(mongoClient, ctx, kafka_connection)
 	orderController = controller.NewOrderController(orderService)
 	orderRoute = routes.NewOrderRoute(orderController)
+
 	//Authentication api
 	userServices = services.NewUserService(ctx, mongoClient)
 	authServices = services.NewAuthService(mongoClient, ctx)
 	authController = controller.NewAuthController(authServices, userServices)
 	authRoute = routes.NewAuthRouter(authController)
+
 	//create gin instance
 	server = gin.Default()
 	//register route
 	movieRoute.MovieRouteRegister(server, userServices)
 	movieScheduleRoute.MovieScheduleRouteRegister(server, userServices)
-	orderRoute.OrderRouteRegister(server)
+	orderRoute.OrderRouteRegister(server, userServices)
 	authRoute.AuthRouteRegister(server)
 }

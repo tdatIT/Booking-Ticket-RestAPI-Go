@@ -2,7 +2,7 @@ package services
 
 import (
 	"Booking-Ticket-App/config"
-	"Booking-Ticket-App/model"
+	model2 "Booking-Ticket-App/data/model"
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,8 +28,8 @@ func NewAuthService(client *mongo.Client, ctx context.Context) AuthService {
 	}
 }
 
-func (as *AuthService) SignUp(body model.SignupBody) (*model.Users, error) {
-	var user model.Users
+func (as *AuthService) SignUp(body model2.SignupBody) (*model2.Users, error) {
+	var user model2.Users
 	user.Email = strings.ToLower(body.Email)
 	hashedPassword, _ := HashPassword(body.Password)
 	user.Password = hashedPassword
@@ -49,7 +49,7 @@ func (as *AuthService) SignUp(body model.SignupBody) (*model.Users, error) {
 		return nil, err
 
 	}
-	var newUser *model.Users
+	var newUser *model2.Users
 	query := bson.M{"_id": res.InsertedID}
 
 	err = as.userCollection.FindOne(as.ctx, query).Decode(&newUser)
@@ -59,9 +59,9 @@ func (as *AuthService) SignUp(body model.SignupBody) (*model.Users, error) {
 
 	return newUser, nil
 }
-func (as *AuthService) SignIn(email string, password string) (*model.Users, error) {
+func (as *AuthService) SignIn(email string, password string) (*model2.Users, error) {
 	query := bson.M{"email": email}
-	var user *model.Users
+	var user *model2.Users
 	err := as.userCollection.FindOne(as.ctx, query).Decode(&user)
 	if err != nil {
 		log.Print(fmt.Errorf("not found user : %w ", err))

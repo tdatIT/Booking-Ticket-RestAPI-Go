@@ -2,8 +2,8 @@ package controller
 
 import (
 	"Booking-Ticket-App/config"
+	model2 "Booking-Ticket-App/data/model"
 	"Booking-Ticket-App/helper"
-	"Booking-Ticket-App/model"
 	"Booking-Ticket-App/services"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -20,7 +20,7 @@ func NewAuthController(authService services.AuthService, userService services.Us
 }
 
 func (ac *AuthController) SignInUser(ctx *gin.Context) {
-	var loginBody *model.LoginDTO
+	var loginBody *model2.LoginDTO
 
 	if err := ctx.ShouldBindJSON(&loginBody); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})
@@ -45,7 +45,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 }
 
 func (ac *AuthController) SignUpUser(ctx *gin.Context) {
-	var body model.SignupBody
+	var body model2.SignupBody
 
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})

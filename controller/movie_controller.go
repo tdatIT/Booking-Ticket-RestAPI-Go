@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"Booking-Ticket-App/model"
+	"Booking-Ticket-App/data/model"
 	"Booking-Ticket-App/services"
 	"github.com/gin-gonic/gin"
 	"net/http"

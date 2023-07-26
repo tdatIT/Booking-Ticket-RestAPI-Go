@@ -2,7 +2,7 @@ package services
 
 import (
 	"Booking-Ticket-App/config"
-	"Booking-Ticket-App/model"
+	"Booking-Ticket-App/data/model"
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
