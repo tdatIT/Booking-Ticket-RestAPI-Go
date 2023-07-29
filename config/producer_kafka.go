@@ -1,7 +1,7 @@
 package config
 
 import (
-	"Booking-Ticket-App/data/message"
+	"Booking-Ticket-App/domain/message"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,15 +10,12 @@ import (
 	"time"
 )
 
-const topic = "order_service_topic"
+func ConnectionToKafka(ctx context.Context) *kafka.Conn {
 
-func ConnectionToKafka() *kafka.Conn {
-
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, 0)
+	conn, err := kafka.DialLeader(ctx, "tcp", "localhost:9092", TOPIC, 0)
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
 	}
-
 	return conn
 }
 func SendMessageToKafka(conn *kafka.Conn, msg message.OrderMessage) error {

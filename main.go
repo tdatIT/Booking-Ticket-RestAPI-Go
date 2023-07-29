@@ -1,45 +1,53 @@
 package main
 
 import (
+	handler2 "Booking-Ticket-App/api/handler"
 	"Booking-Ticket-App/config"
-	"Booking-Ticket-App/controller"
-	"Booking-Ticket-App/routes"
-	"Booking-Ticket-App/services"
+	"Booking-Ticket-App/domain/model"
+	"Booking-Ticket-App/usecase/movie"
+	"Booking-Ticket-App/usecase/movie/repository"
+	"Booking-Ticket-App/usecase/movie_schedule"
+	repository3 "Booking-Ticket-App/usecase/movie_schedule/repository"
+	"Booking-Ticket-App/usecase/order"
+	"Booking-Ticket-App/usecase/order/producer"
+	"Booking-Ticket-App/usecase/user"
+	repository2 "Booking-Ticket-App/usecase/user/repository"
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
+	"time"
 )
 
 var (
 	server           *gin.Engine
 	ctx              context.Context
+	redis_client     *redis.Client
 	mongoClient      *mongo.Client
 	kafka_connection *kafka.Conn
-	//  Add the Movies Service, Controllers and Routes
-	movieService    services.MovieServices
-	movieController controller.MovieController
-	movieRoute      routes.MovieRoute
-	//  Add the Movie Schedule Service, Controllers and Routes
-	movieScheduleServices   services.MovieScheduleService
-	movieScheduleController controller.MovieScheduleController
-	movieScheduleRoute      routes.MovieScheduleRoute
-	//  Add the Movies Service, Controllers and Routes
-	orderService    services.OrderService
-	orderController controller.OrderController
-	orderRoute      routes.OrderRoute
-	// Add authentication
-	userServices   services.UserService
-	authServices   services.AuthService
-	authController controller.AuthController
-	authRoute      routes.AuthRouter
+	//  Add the movie usecase and handle
+	movieRepository model.MovieRepository
+	movieUsecase    model.MovieUsecase
+	movieCaching    model.CachingMovieRepository
+	// Add the user usecase and handle
+	userRepository model.UserRepository
+	userUsecase    model.UserUsecase
+	// Add the movie schedule api
+	msRepository model.MovieScheduleRepository
+	msUsecase    model.MovieScheduleUsecase
+	// Add the order api
+	messageProducer model.OrderDeliveryMessage
+	orderUsecase    model.OrderUsecase
 )
 
 func main() {
+
 	fmt.Println("Init web app")
 	InitServer()
+	defer config.CloseConnectionKafka(kafka_connection)
 	err := server.Run(":5000")
 	if err != nil {
 		log.Fatal(err.Error())
@@ -47,41 +55,31 @@ func main() {
 	fmt.Println("Server is running on port 5000")
 }
 func InitServer() {
-	/*	ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*30)
-		defer cancel()
-		ctx = ctxTimeout*/
-	ctx = context.TODO()
+	timeOutContext := 10 * time.Second
+	ctx = context.Background()
 
-	mongoClient = config.DB
+	ctx_timeout, _ := context.WithTimeout(ctx, 5*time.Second)
+	mongoClient = config.ConnectDB(ctx_timeout)
+	kafka_connection = config.ConnectionToKafka(ctx)
+	redis_client = config.GetConnectToRedis()
 
-	kafka_connection = config.ConnectionToKafka()
-
-	//Handle movie api movie endpoint
-	movieService = services.NewMovieClient(mongoClient, ctx)
-	movieController = controller.NewMovieController(movieService)
-	movieRoute = routes.NewMovieRouter(movieController)
-
-	//Handle movie schedule endpoint
-	movieScheduleServices = services.NewMovieScheduleService(mongoClient, ctx)
-	movieScheduleController = controller.NewMovieScheduleController(movieScheduleServices)
-	movieScheduleRoute = routes.NewMovieScheduleRoute(movieScheduleController)
-
-	//Handle movie api movie endpoint
-	orderService = services.NewOrderService(mongoClient, ctx, kafka_connection)
-	orderController = controller.NewOrderController(orderService)
-	orderRoute = routes.NewOrderRoute(orderController)
-
-	//Authentication api
-	userServices = services.NewUserService(ctx, mongoClient)
-	authServices = services.NewAuthService(mongoClient, ctx)
-	authController = controller.NewAuthController(authServices, userServices)
-	authRoute = routes.NewAuthRouter(authController)
-
-	//create gin instance
 	server = gin.Default()
-	//register route
-	movieRoute.MovieRouteRegister(server, userServices)
-	movieScheduleRoute.MovieScheduleRouteRegister(server, userServices)
-	orderRoute.OrderRouteRegister(server, userServices)
-	authRoute.AuthRouteRegister(server)
+
+	//Handle movie api movie endpoint
+	movieRepository = repository.NewMongodbMovieRepository(mongoClient)
+	movieCaching = repository.NewRedisCachingRepo(redis_client)
+	movieUsecase = movie.NewMovieUseCase(movieRepository, movieCaching, timeOutContext)
+	handler2.NewMovieController(movieUsecase, server)
+	//Handle user api endpoint
+	userRepository = repository2.NewMongoDBUserRepository(mongoClient)
+	userUsecase = user.NewUserUsecase(userRepository, timeOutContext)
+	handler2.NewUserHandler(userUsecase, server)
+	//Handle movie schedule api
+	msRepository = repository3.NewMongoDBMovieScheduleRepository(mongoClient)
+	msUsecase = movie_schedule.NewMovieScheduleUsecase(msRepository, timeOutContext)
+	handler2.NewMovieScheduleHandler(msUsecase, userRepository, server)
+	//Handle order usecase api
+	messageProducer = producer.NewKafkaProducer(kafka_connection)
+	orderUsecase = order.NewOrderUsecase(messageProducer)
+	handler2.NewOrderHandler(orderUsecase, server)
 }

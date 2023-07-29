@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func ConnectDB() *mongo.Client {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func ConnectDB(c context.Context) *mongo.Client {
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017/"))
 	if err != nil {
@@ -19,9 +19,6 @@ func ConnectDB() *mongo.Client {
 	fmt.Println("Connected to MongoDB")
 	return client
 }
-
-// Client instance
-var DB *mongo.Client = ConnectDB()
 
 // getting database collections
 func GetCollection(client *mongo.Client, collectionName string) *mongo.Collection {

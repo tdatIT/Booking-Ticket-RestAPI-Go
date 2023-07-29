@@ -10,6 +10,7 @@ const (
 	AccessTokenExpiresIn = 30
 	SecretKey            = "eGluaGRlcHR1eWV"
 	AccessTokenMaxAge    = 24
+	TOPIC                = "order_service_topic"
 )
 
 func GetMongoURI() string {
